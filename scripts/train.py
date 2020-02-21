@@ -1,5 +1,5 @@
 from mel2wav.dataset import AudioDataset
-from mel2wav.modules import Generator, Discriminator, Audio2Mel
+from mel2wav.modules import Generator, Discriminator, Audio2Mel, Audio2Cqt
 from mel2wav.utils import save_sample
 
 import torch
@@ -64,6 +64,7 @@ def main():
         args.num_D, args.ndf, args.n_layers_D, args.downsamp_factor
     ).cuda()
     fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
+    #fft = Audio2Cqt(n_bins=args.n_bins).cuda()
 
     print(netG)
     print(netD)
