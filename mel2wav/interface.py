@@ -1,4 +1,4 @@
-from mel2wav.modules import Generator, Audio2Mel
+from mel2wav.modules import Generator, Audio2Mel, Audio2Cqt
 
 from pathlib import Path
 import yaml
@@ -36,6 +36,7 @@ class MelVocoder:
         model_name="multi_speaker",
     ):
         self.fft = Audio2Mel().to(device)
+        #self.fft = Audio2Cqt().to(device)
         if github:
             netG = Generator(80, 32, 3).to(device)
             root = Path(os.path.dirname(__file__)).parent

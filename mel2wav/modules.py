@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from librosa.filters import mel as librosa_mel_fn
+from librosa.filters import constant_q as librosa_cqt_fn
 from torch.nn.utils import weight_norm
 import numpy as np
 
@@ -68,6 +69,49 @@ class Audio2Mel(nn.Module):
         log_mel_spec = torch.log10(torch.clamp(mel_output, min=1e-5))
         return log_mel_spec
 
+
+class Audio2Cqt(nn.Module):
+    def __init__(
+        self,
+        n_fft=1024,
+        hop_length=256,
+        win_length=1024,
+        n_bins=84,
+        sampling_rate=16000,
+    ):
+        super().__init__()
+        ##############################################
+        # FFT Parameters                              #
+        ##############################################
+        window = torch.hann_window(win_length).float()
+        cqt_basis = librosa_cqt_fn(
+            sampling_rate, n_bins=n_bins
+        )
+        cqt_basis = torch.from_numpy(cqt_basis).float()
+        self.register_buffer("cqt_basis", cqt_basis)
+        self.register_buffer("window", window)
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+        self.win_length = win_length
+        self.sampling_rate = sampling_rate
+        self.n_mel_channels = n_mel_channels
+
+    def forward(self, audio):
+        p = (self.n_fft - self.hop_length) // 2
+        audio = F.pad(audio, (p, p), "reflect").squeeze(1)
+        fft = torch.stft(
+            audio,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            center=False,
+        )
+        real_part, imag_part = fft.unbind(-1)
+        magnitude = torch.sqrt(real_part ** 2 + imag_part ** 2)
+        cqt_output = torch.matmul(self.cqt_basis, magnitude)
+        log_cqt_spec = torch.log10(torch.clamp(cqt_output, min=1e-5))
+        return log_cqt_spec
 
 class ResnetBlock(nn.Module):
     def __init__(self, dim, dilation=1):
