@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from nnAudio import Spectrogram
 from librosa.filters import mel as librosa_mel_fn
 from librosa.filters import constant_q as librosa_cqt_fn
 from torch.nn.utils import weight_norm
@@ -53,6 +54,7 @@ class Audio2Mel(nn.Module):
         self.n_mel_channels = n_mel_channels
 
     def forward(self, audio):
+        audio = tensor
         p = (self.n_fft - self.hop_length) // 2
         audio = F.pad(audio, (p, p), "reflect").squeeze(1)
         fft = torch.stft(
@@ -84,9 +86,14 @@ class Audio2Cqt(nn.Module):
         # FFT Parameters                              #
         ##############################################
         window = torch.hann_window(win_length).float()
-        cqt_basis = librosa_cqt_fn(
-            sampling_rate, n_bins=n_bins
+        cqt_basis, lengths = librosa_cqt_fn(
+            sampling_rate, n_bins=n_bins, filter_scale=0.5
         )
+        print('based and cqt basis pilled', cqt_basis)
+        print('based and cqt basis pilled length', cqt_basis.shape)
+        print('muh lengths', lengths)
+        print('muh lengths shape', lengths.shape)
+        cqt_basis = cqt_basis.astype(dtype=np.float32)
         cqt_basis = torch.from_numpy(cqt_basis).float()
         self.register_buffer("cqt_basis", cqt_basis)
         self.register_buffer("window", window)
@@ -94,24 +101,32 @@ class Audio2Cqt(nn.Module):
         self.hop_length = hop_length
         self.win_length = win_length
         self.sampling_rate = sampling_rate
-        self.n_mel_channels = n_mel_channels
+        #self.n_mel_channels = n_mel_channels
 
     def forward(self, audio):
-        p = (self.n_fft - self.hop_length) // 2
-        audio = F.pad(audio, (p, p), "reflect").squeeze(1)
-        fft = torch.stft(
-            audio,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
-            window=self.window,
-            center=False,
-        )
-        real_part, imag_part = fft.unbind(-1)
-        magnitude = torch.sqrt(real_part ** 2 + imag_part ** 2)
-        cqt_output = torch.matmul(self.cqt_basis, magnitude)
-        log_cqt_spec = torch.log10(torch.clamp(cqt_output, min=1e-5))
-        return log_cqt_spec
+        #x = torch.tensor(audio).float()
+        spec_layer = Spectrogram.CQT1992v2(sr=self.sampling_rate, output_format='Magnitude')
+        spec = spec_layer(audio)
+        #numpy_spec = spec.cpu().numpy()
+        #print('shape of np spec', spec[0].shape)
+        return spec[0]
+    # def forward(self, audio):
+    #     p = (self.n_fft - self.hop_length) // 2
+    #     audio = F.pad(audio, (p, p), "reflect").squeeze(1)
+    #     fft = torch.stft(
+    #         audio,
+    #         n_fft=self.n_fft,
+    #         hop_length=self.hop_length,
+    #         win_length=self.win_length,
+    #         window=self.window,
+    #         center=False,
+    #     )
+    #     real_part, imag_part = fft.unbind(-1)
+    #     magnitude = torch.sqrt(real_part ** 2 + imag_part ** 2)
+    #     print('log cqt spec shape', self.cqt_basis.shape)
+    #     cqt_output = torch.matmul(self.cqt_basis, magnitude)
+    #     log_cqt_spec = torch.log10(torch.clamp(cqt_output, min=1e-5))
+    #     return log_cqt_spec
 
 class ResnetBlock(nn.Module):
     def __init__(self, dim, dilation=1):
