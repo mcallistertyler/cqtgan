@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from nnAudio import Spectrogram
+import librosa
 from librosa.filters import mel as librosa_mel_fn
 from librosa.filters import constant_q as librosa_cqt_fn
 from torch.nn.utils import weight_norm
@@ -104,12 +105,19 @@ class Audio2Cqt(nn.Module):
         #self.n_mel_channels = n_mel_channels
 
     def forward(self, audio):
+        numpyaudio = audio.cpu().numpy()
+        print(numpyaudio.shape)
+        print(numpyaudio[0][0].shape)
+        C = np.abs(librosa.cqt(numpyaudio[0][0], self.sampling_rate))
+        C = np.log10(np.maximum(C, 1e-10))
+        tC = torch.from_numpy(C)
+        return tC
         #x = torch.tensor(audio).float()
-        spec_layer = Spectrogram.CQT1992v2(sr=self.sampling_rate, output_format='Magnitude')
-        spec = spec_layer(audio)
+        #spec_layer = Spectrogram.CQT1992v2(sr=self.sampling_rate, output_format='Magnitude')
+        #spec = spec_layer(audio)
         #numpy_spec = spec.cpu().numpy()
         #print('shape of np spec', spec[0].shape)
-        return spec[0]
+        #return spec[0]
     # def forward(self, audio):
     #     p = (self.n_fft - self.hop_length) // 2
     #     audio = F.pad(audio, (p, p), "reflect").squeeze(1)
