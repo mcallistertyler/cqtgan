@@ -64,7 +64,8 @@ def main():
         args.num_D, args.ndf, args.n_layers_D, args.downsamp_factor
     ).cuda()
     #fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
-    fft = Audio2Cqt(n_bins=args.n_bins).cuda()
+    fft = Audio2Cqt(n_bins=84).cuda()
+    print('cqt fft', fft)
 
     print(netG)
     print(netD)
@@ -105,6 +106,7 @@ def main():
     for i, x_t in enumerate(test_loader):
         x_t = x_t.cuda()
         s_t = fft(x_t).detach()
+        print('dump audio')
 
         test_voc.append(s_t.cuda())
         test_audio.append(x_t)
@@ -114,11 +116,11 @@ def main():
         writer.add_audio("original/sample_%d.wav" % i, audio, 0, sample_rate=22050)
 
         if i == args.n_test_samples - 1:
+            print('did something happen here')
             break
-
     costs = []
     start = time.time()
-
+    print('reached after data processing')
     # enable cudnn autotuner to speed up training
     torch.backends.cudnn.benchmark = True
 
@@ -127,6 +129,7 @@ def main():
     for epoch in range(1, args.epochs + 1):
         for iterno, x_t in enumerate(train_loader):
             x_t = x_t.cuda()
+            print('vat is x_t', x_t.shape)
             s_t = fft(x_t).detach()
             x_pred_t = netG(s_t.cuda())
 
