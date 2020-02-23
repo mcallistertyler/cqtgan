@@ -63,8 +63,8 @@ def main():
     netD = Discriminator(
         args.num_D, args.ndf, args.n_layers_D, args.downsamp_factor
     ).cuda()
-    fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
-    #fft = Audio2Cqt(n_bins=args.n_bins).cuda()
+    #fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
+    fft = Audio2Cqt(n_bins=args.n_bins).cuda()
 
     print(netG)
     print(netD)
