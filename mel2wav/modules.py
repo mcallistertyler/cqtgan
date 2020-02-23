@@ -77,7 +77,7 @@ class Audio2Cqt(nn.Module):
         hop_length=256,
         win_length=1024,
         n_bins=84,
-        sampling_rate=16000,
+        sampling_rate=22050,
     ):
         super().__init__()
         ##############################################

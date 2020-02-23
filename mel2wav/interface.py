@@ -35,8 +35,8 @@ class MelVocoder:
         github=False,
         model_name="multi_speaker",
     ):
-        self.fft = Audio2Mel().to(device)
-        #self.fft = Audio2Cqt().to(device)
+        #self.fft = Audio2Mel().to(device)
+        self.fft = Audio2Cqt().to(device)
         if github:
             netG = Generator(80, 32, 3).to(device)
             root = Path(os.path.dirname(__file__)).parent
