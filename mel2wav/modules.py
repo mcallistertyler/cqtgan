@@ -2,12 +2,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from nnAudio import Spectrogram
+import matplotlib.pyplot as plt
+import datetime
 import librosa
 from librosa.filters import mel as librosa_mel_fn
 from librosa.filters import constant_q as librosa_cqt_fn
 from torch.nn.utils import weight_norm
 import numpy as np
-
+from mel2wav.utils import save_sample
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -25,6 +27,9 @@ def WNConv1d(*args, **kwargs):
 def WNConvTranspose1d(*args, **kwargs):
     return weight_norm(nn.ConvTranspose1d(*args, **kwargs))
 
+def save_spec_images(spec):
+    imgdt = datetime.datetime.now()
+    plt.imsave(str(imgdt) + '.png', spec[0].cpu().numpy())
 
 class Audio2Mel(nn.Module):
     def __init__(
@@ -55,7 +60,6 @@ class Audio2Mel(nn.Module):
         self.n_mel_channels = n_mel_channels
 
     def forward(self, audio):
-        audio = tensor
         p = (self.n_fft - self.hop_length) // 2
         audio = F.pad(audio, (p, p), "reflect").squeeze(1)
         fft = torch.stft(
@@ -90,51 +94,29 @@ class Audio2Cqt(nn.Module):
         cqt_basis, lengths = librosa_cqt_fn(
             sampling_rate, n_bins=n_bins, filter_scale=0.5
         )
-        print('based and cqt basis pilled', cqt_basis)
-        print('based and cqt basis pilled length', cqt_basis.shape)
-        print('muh lengths', lengths)
-        print('muh lengths shape', lengths.shape)
         cqt_basis = cqt_basis.astype(dtype=np.float32)
         cqt_basis = torch.from_numpy(cqt_basis).float()
         self.register_buffer("cqt_basis", cqt_basis)
         self.register_buffer("window", window)
         self.n_fft = n_fft
+        self.n_bins = n_bins
         self.hop_length = hop_length
         self.win_length = win_length
         self.sampling_rate = sampling_rate
+        self.spec_layer = Spectrogram.CQT1992v2(sr=sampling_rate, n_bins=84, hop_length=hop_length, output_format='Magnitude', pad_mode='constant', device='cuda:0', verbose=False, trainable=False)
         #self.n_mel_channels = n_mel_channels
 
     def forward(self, audio):
-        numpyaudio = audio.cpu().numpy()
-        print(numpyaudio.shape)
-        print(numpyaudio[0][0].shape)
-        C = np.abs(librosa.cqt(numpyaudio[0][0], self.sampling_rate))
-        C = np.log10(np.maximum(C, 1e-10))
-        tC = torch.from_numpy(C)
-        return tC
-        #x = torch.tensor(audio).float()
-        #spec_layer = Spectrogram.CQT1992v2(sr=self.sampling_rate, output_format='Magnitude')
-        #spec = spec_layer(audio)
-        #numpy_spec = spec.cpu().numpy()
-        #print('shape of np spec', spec[0].shape)
-        #return spec[0]
-    # def forward(self, audio):
-    #     p = (self.n_fft - self.hop_length) // 2
-    #     audio = F.pad(audio, (p, p), "reflect").squeeze(1)
-    #     fft = torch.stft(
-    #         audio,
-    #         n_fft=self.n_fft,
-    #         hop_length=self.hop_length,
-    #         win_length=self.win_length,
-    #         window=self.window,
-    #         center=False,
-    #     )
-    #     real_part, imag_part = fft.unbind(-1)
-    #     magnitude = torch.sqrt(real_part ** 2 + imag_part ** 2)
-    #     print('log cqt spec shape', self.cqt_basis.shape)
-    #     cqt_output = torch.matmul(self.cqt_basis, magnitude)
-    #     log_cqt_spec = torch.log10(torch.clamp(cqt_output, min=1e-5))
-    #     return log_cqt_spec
+        #print('audio shape before p', audio.shape)
+        p = (self.n_bins - self.hop_length) // 2
+        audio = F.pad(audio, (p, p), "reflect").squeeze(1)
+        #print('audio shape after padding', audio.shape)
+        diffaudio = audio.cpu().squeeze()
+        #save_sample('soundgoodye/' + (str(datetime.datetime.now()) + ".wav"), 22050, diffaudio)
+        spec = self.spec_layer(audio)
+        #print('spectrogram size from audio', spec[0].shape)
+        #save_spec_images(spec) #saves basically everything
+        return spec
 
 class ResnetBlock(nn.Module):
     def __init__(self, dim, dilation=1):
