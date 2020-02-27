@@ -76,10 +76,12 @@ def main():
     optD = torch.optim.Adam(netD.parameters(), lr=1e-4, betas=(0.5, 0.9))
 
     if load_root and load_root.exists():
+        print('Loading weights')
         netG.load_state_dict(torch.load(load_root / "netG.pt"))
         optG.load_state_dict(torch.load(load_root / "optG.pt"))
         netD.load_state_dict(torch.load(load_root / "netD.pt"))
         optD.load_state_dict(torch.load(load_root / "optD.pt"))
+        print('Weights loaded')
 
     #######################
     # Create data loaders #
