@@ -107,14 +107,10 @@ class Audio2Cqt(nn.Module):
         #self.n_mel_channels = n_mel_channels
 
     def forward(self, audio):
-        #print('audio shape before p', audio.shape)
-        p = (self.n_bins - self.hop_length) // 2
+        p = (self.n_bins - self.hop_length) // 2 #This needs to be corrected to make actual sense
         audio = F.pad(audio, (p, p), "reflect").squeeze(1)
-        #print('audio shape after padding', audio.shape)
-        diffaudio = audio.cpu().squeeze()
-        #save_sample('soundgoodye/' + (str(datetime.datetime.now()) + ".wav"), 22050, diffaudio)
         spec = self.spec_layer(audio)
-        #print('spectrogram size from audio', spec[0].shape)
+        spec = torch.log10(spec)
         #save_spec_images(spec) #saves basically everything
         return spec
 
