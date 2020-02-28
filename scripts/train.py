@@ -1,5 +1,5 @@
 from mel2wav.dataset import AudioDataset
-from mel2wav.modules import Generator, Discriminator, Audio2Mel
+from mel2wav.modules import Generator, Discriminator, Audio2Mel, Audio2Cqt
 from mel2wav.utils import save_sample
 
 import torch
@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("--save_path", required=True)
     parser.add_argument("--load_path", default=None)
 
-    parser.add_argument("--n_mel_channels", type=int, default=80)
+    parser.add_argument("--n_mel_channels", type=int, default=84) #84 for cqt
     parser.add_argument("--ngf", type=int, default=32)
     parser.add_argument("--n_residual_layers", type=int, default=3)
 
@@ -63,7 +63,8 @@ def main():
     netD = Discriminator(
         args.num_D, args.ndf, args.n_layers_D, args.downsamp_factor
     ).cuda()
-    fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
+    #fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
+    fft = Audio2Cqt(n_bins=args.n_mel_channels).cuda()
 
     print(netG)
     print(netD)
@@ -75,10 +76,12 @@ def main():
     optD = torch.optim.Adam(netD.parameters(), lr=1e-4, betas=(0.5, 0.9))
 
     if load_root and load_root.exists():
+        print('Loading weights')
         netG.load_state_dict(torch.load(load_root / "netG.pt"))
         optG.load_state_dict(torch.load(load_root / "optG.pt"))
         netD.load_state_dict(torch.load(load_root / "netD.pt"))
         optD.load_state_dict(torch.load(load_root / "optD.pt"))
+        print('Weights loaded')
 
     #######################
     # Create data loaders #
@@ -114,10 +117,9 @@ def main():
 
         if i == args.n_test_samples - 1:
             break
-
     costs = []
     start = time.time()
-
+    print('reached after data processing')
     # enable cudnn autotuner to speed up training
     torch.backends.cudnn.benchmark = True
 
@@ -126,13 +128,18 @@ def main():
     for epoch in range(1, args.epochs + 1):
         for iterno, x_t in enumerate(train_loader):
             x_t = x_t.cuda()
-            s_t = fft(x_t).detach()
-            x_pred_t = netG(s_t.cuda())
-
+            #print('var is x_t', x_t.shape)
+            s_t = fft(x_t).detach() # generate spectrogram
+            #print('st shape', s_t.shape)
+            x_pred_t = netG(s_t.cuda()) # generate audio from real spectrogram
+            #print('x pred t shape', x_pred_t.shape)
             with torch.no_grad():
-                s_pred_t = fft(x_pred_t.detach())
-                s_error = F.l1_loss(s_t, s_pred_t).item()
-
+                #print('Prediction and error')
+                s_pred_t = fft(x_pred_t.detach()) # get spectrogram from the audio we generated
+                #print('before error calculation st shape', s_t.shape)
+                #print('st pred shape', s_pred_t.shape)
+                s_error = F.l1_loss(s_t, s_pred_t).item() # find loss between generated spectrogram from real audio and the spectrogram from audio by the generator
+                #print('after error calcuation')
             #######################
             # Train Discriminator #
             #######################
