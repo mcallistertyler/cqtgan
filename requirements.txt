@@ -3,3 +3,4 @@ librosa
 pyyaml
 scipy
 argparse
+nnaudio
