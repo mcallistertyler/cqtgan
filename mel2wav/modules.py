@@ -110,8 +110,8 @@ class Audio2Cqt(nn.Module):
         p = (self.n_bins - self.hop_length) // 2 #This needs to be corrected to make actual sense
         audio = F.pad(audio, (p, p), "reflect").squeeze(1)
         spec = self.spec_layer(audio)
-        spec = torch.log10(spec)
-        #save_spec_images(spec) #saves basically everything
+        spec = torch.log(torch.clamp(spec, min=1e-5))
+        #save_spec_images(spec) #saves basically every single spectrogram so remember to leave this out when training
         return spec
 
 class ResnetBlock(nn.Module):
