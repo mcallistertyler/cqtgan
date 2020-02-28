@@ -1,4 +1,4 @@
-from mel2wav.modules import Generator, Audio2Mel, Audio2Cqt
+from spec2wav.modules import Generator, Audio2Mel, Audio2Cqt
 
 from pathlib import Path
 import yaml
@@ -13,13 +13,13 @@ def get_default_device():
         return "cpu"
 
 
-def load_model(mel2wav_path, device=get_default_device()):
+def load_model(spec2wav_path, device=get_default_device()):
     """
     Args:
-        mel2wav_path (str or Path): path to the root folder of dumped text2mel
+        spec2wav_path (str or Path): path to the root folder of dumped text2mel
         device (str or torch.device): device to load the model
     """
-    root = Path(mel2wav_path)
+    root = Path(spec2wav_path)
     with open(root / "args.yml", "r") as f:
         args = yaml.load(f, Loader=yaml.FullLoader)
     netG = Generator(args.n_mel_channels, args.ngf, args.n_residual_layers).to(device)
@@ -43,14 +43,14 @@ class MelVocoder:
             netG.load_state_dict(
                 torch.load(root / f"models/{model_name}.pt", map_location=device)
             )
-            self.mel2wav = netG
+            self.spec2wav = netG
         else:
-            self.mel2wav = load_model(path, device)
+            self.spec2wav = load_model(path, device)
         self.device = device
 
     def __call__(self, audio):
         """
-        Performs audio to mel conversion (See Audio2Mel in mel2wav/modules.py)
+        Performs audio to mel conversion (See Audio2Mel in spec2wav/modules.py)
         Args:
             audio (torch.tensor): PyTorch tensor containing audio (batch_size, timesteps)
         Returns:
@@ -68,4 +68,4 @@ class MelVocoder:
 
         """
         with torch.no_grad():
-            return self.mel2wav(mel.to(self.device)).squeeze(1)
+            return self.spec2wav(mel.to(self.device)).squeeze(1)

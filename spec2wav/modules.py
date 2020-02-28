@@ -9,7 +9,7 @@ from librosa.filters import mel as librosa_mel_fn
 from librosa.filters import constant_q as librosa_cqt_fn
 from torch.nn.utils import weight_norm
 import numpy as np
-from mel2wav.utils import save_sample
+from spec2wav.utils import save_sample
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -80,9 +80,7 @@ class Audio2Mel(nn.Module):
 class Audio2Cqt(nn.Module):
     def __init__(
         self,
-        n_fft=1024,
         hop_length=256,
-        win_length=1024,
         n_bins=84,
         sampling_rate=22050,
     ):
@@ -90,27 +88,16 @@ class Audio2Cqt(nn.Module):
         ##############################################
         # FFT Parameters                              #
         ##############################################
-        window = torch.hann_window(win_length).float()
-        cqt_basis, lengths = librosa_cqt_fn(
-            sampling_rate, n_bins=n_bins, filter_scale=0.5
-        )
-        cqt_basis = cqt_basis.astype(dtype=np.float32)
-        cqt_basis = torch.from_numpy(cqt_basis).float()
-        self.register_buffer("cqt_basis", cqt_basis)
-        self.register_buffer("window", window)
-        self.n_fft = n_fft
         self.n_bins = n_bins
         self.hop_length = hop_length
-        self.win_length = win_length
         self.sampling_rate = sampling_rate
         self.spec_layer = Spectrogram.CQT1992v2(sr=sampling_rate, n_bins=84, hop_length=hop_length, output_format='Magnitude', pad_mode='constant', device='cuda:0', verbose=False, trainable=False)
-        #self.n_mel_channels = n_mel_channels
 
     def forward(self, audio):
-        p = (self.n_bins - self.hop_length) // 2 #This needs to be corrected to make actual sense
+        p = (self.n_bins - self.hop_length) // 2 # Needs to be corrected to make actual sense
         audio = F.pad(audio, (p, p), "reflect").squeeze(1)
         spec = self.spec_layer(audio)
-        spec = torch.log(torch.clamp(spec, min=1e-5))
+        spec = torch.log(torch.clamp(spec, min=1e-5)) # Get log magnitude of spectrogram
         #save_spec_images(spec) #saves basically every single spectrogram so remember to leave this out when training
         return spec
 

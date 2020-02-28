@@ -1,6 +1,6 @@
-from mel2wav.dataset import AudioDataset
-from mel2wav.modules import Generator, Discriminator, Audio2Mel, Audio2Cqt
-from mel2wav.utils import save_sample
+from spec2wav.dataset import AudioDataset
+from spec2wav.modules import Generator, Discriminator, Audio2Mel, Audio2Cqt
+from spec2wav.utils import save_sample
 
 import torch
 import torch.nn.functional as F
@@ -18,8 +18,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--save_path", required=True)
     parser.add_argument("--load_path", default=None)
-
-    parser.add_argument("--n_mel_channels", type=int, default=84) #84 for cqt
+    parser.add_argument("--spectrogram", type=str, default="cqt")
+    parser.add_argument("--n_bins", type=int, default=84) #84 for cqt
+    parser.add_argument("--n_mel_channels", type=int, default=80)
     parser.add_argument("--ngf", type=int, default=32)
     parser.add_argument("--n_residual_layers", type=int, default=3)
 
@@ -38,6 +39,7 @@ def parse_args():
     parser.add_argument("--log_interval", type=int, default=100)
     parser.add_argument("--save_interval", type=int, default=1000)
     parser.add_argument("--n_test_samples", type=int, default=8)
+    parser.add_argument("--inference", type=bool, default=False) #Generate sound from a single spectrogram
     args = parser.parse_args()
     return args
 
@@ -46,9 +48,9 @@ def main():
     args = parse_args()
 
     root = Path(args.save_path)
+    spec_type = args.spectrogram
     load_root = Path(args.load_path) if args.load_path else None
     root.mkdir(parents=True, exist_ok=True)
-
     ####################################
     # Dump arguments and create logger #
     ####################################
@@ -59,13 +61,18 @@ def main():
     #######################
     # Load PyTorch Models #
     #######################
-    netG = Generator(args.n_mel_channels, args.ngf, args.n_residual_layers).cuda()
-    netD = Discriminator(
-        args.num_D, args.ndf, args.n_layers_D, args.downsamp_factor
-    ).cuda()
-    #fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
-    fft = Audio2Cqt(n_bins=args.n_mel_channels).cuda()
+    if (args.spectrogram == "mel"):
+        netG = Generator(args.n_mel_channels, args.ngf, args.n_residual_layers).cuda() #initialise generator with n mel channels
+        fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
+    if (args.spectrogram == "cqt"):
+        netG = Generator(args.n_bins, args.ngf, args.n_residual_layers).cuda() #initialise generator with n bins
+        fft = Audio2Cqt(n_bins=args.n_bins).cuda()
+    else:
+        netG = Generator(args.n_bins, args.ngf, args.n_residual_layers).cuda()
+        fft = Audio2Cqt(n_bins=args.n_bins).cuda()
+    netD = Discriminator(args.num_D, args.ndf, args.n_layers_D, args.downsamp_factor).cuda() #initialize discriminator
 
+ 
     print(netG)
     print(netD)
 
@@ -119,7 +126,6 @@ def main():
             break
     costs = []
     start = time.time()
-    print('reached after data processing')
     # enable cudnn autotuner to speed up training
     torch.backends.cudnn.benchmark = True
 
@@ -128,18 +134,11 @@ def main():
     for epoch in range(1, args.epochs + 1):
         for iterno, x_t in enumerate(train_loader):
             x_t = x_t.cuda()
-            #print('var is x_t', x_t.shape)
             s_t = fft(x_t).detach() # generate spectrogram
-            #print('st shape', s_t.shape)
             x_pred_t = netG(s_t.cuda()) # generate audio from real spectrogram
-            #print('x pred t shape', x_pred_t.shape)
             with torch.no_grad():
-                #print('Prediction and error')
                 s_pred_t = fft(x_pred_t.detach()) # get spectrogram from the audio we generated
-                #print('before error calculation st shape', s_t.shape)
-                #print('st pred shape', s_pred_t.shape)
                 s_error = F.l1_loss(s_t, s_pred_t).item() # find loss between generated spectrogram from real audio and the spectrogram from audio by the generator
-                #print('after error calcuation')
             #######################
             # Train Discriminator #
             #######################

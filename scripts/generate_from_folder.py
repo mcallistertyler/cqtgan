@@ -1,4 +1,4 @@
-from mel2wav import MelVocoder
+from spec2wav import MelVocoder
 
 from pathlib import Path
 from tqdm import tqdm
