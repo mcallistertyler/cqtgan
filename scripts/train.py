@@ -8,6 +8,9 @@ import torchvision.transforms.functional as TF
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
+from scipy.io import wavfile
+import matplotlib.pyplot as plt
+import datetime
 
 import yaml
 import numpy as np
@@ -46,6 +49,9 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def save_spec_images(spec):
+    imgdt = datetime.datetime.now()
+    plt.imsave(str(imgdt) + '.png', spec[0].cpu().numpy())
 
 def main():
     args = parse_args()
@@ -115,7 +121,6 @@ def main():
         test_loader = DataLoader(test_set, batch_size=1)
     else:
         print('Inference started')
-        print('One day many things will be loaded here but not today')
         # sample_set = AudioDataset(
         #     Path(args.data_path) / "infer_files.txt",
         #     22050 * 4,
@@ -143,15 +148,22 @@ def main():
         #         break
         st = time.time()
         with torch.no_grad():
-            image = Image.open(args.test_spec)
-            x = TF.to_tensor(image).cuda()
+            #image = Image.open(args.test_spec)
+            #print('image opened', image)
+            #x = TF.to_tensor(image).cuda()
+            #print('x to tf tensor', x.shape)
+            x = torch.load('unseen.pt')
+            print('god has entered the chatroom', x.shape)
+            save_spec_images(x)
+            x = x.cuda()
+            print('x shape', x.shape)
             pred_audio = netG(x)
             pred_audio = pred_audio.squeeze().cpu()
-            print('Pred audio shape', pred_audio.shape)
-            save_sample(root / ("generated_test.wav"), 22050, pred_audio[0])
+            print('audio shape', pred_audio.shape)
+            save_sample(root / ("unseenboys2.wav"), 22050, pred_audio)
             writer.add_audio(
                 "generated/sample_test.wav",
-                pred_audio[0],
+                pred_audio,
                 global_step=None,
                 sample_rate=22050,
             )
@@ -254,8 +266,13 @@ def main():
                     st = time.time()
                     with torch.no_grad():
                         for i, (voc, _) in enumerate(zip(test_voc, test_audio)):
+                            save_spec_images(voc)
+                            print('shape of voc', voc.shape)
+                            print('saved spec')
                             pred_audio = netG(voc)
+                            print('pred audio shape', pred_audio.shape)
                             pred_audio = pred_audio.squeeze().cpu()
+                            print('pred audio squeezed shape', pred_audio.shape)
                             save_sample(root / ("generated_%d.wav" % i), 22050, pred_audio)
                             writer.add_audio(
                                 "generated/sample_%d.wav" % i,
