@@ -111,7 +111,6 @@ def main():
         st = time.time()
         with torch.no_grad():
             x = torch.load('unseen.pt')
-            save_spec_images(x)
             x = x.cuda()
             pred_audio = netG(x)
             pred_audio = pred_audio.squeeze().cpu()
@@ -124,7 +123,7 @@ def main():
             )
             print('Finished inference')
         return
-        
+
     train_set = AudioDataset(
         Path(args.data_path) / "train_files.txt", 
         args.seq_len, 
@@ -225,7 +224,6 @@ def main():
                 st = time.time()
                 with torch.no_grad():
                     for i, (voc, _) in enumerate(zip(test_voc, test_audio)):
-                        save_spec_images(voc)
                         pred_audio = netG(voc)
                         pred_audio = pred_audio.squeeze().cpu()
                         save_sample(root / ("generated_%d.wav" % i), 22050, pred_audio)
