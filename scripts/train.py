@@ -4,8 +4,13 @@ from spec2wav.utils import save_sample
 
 import torch
 import torch.nn.functional as F
+import torchvision.transforms.functional as TF
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from PIL import Image
+from scipy.io import wavfile
+import matplotlib.pyplot as plt
+import datetime
 
 import yaml
 import numpy as np
@@ -40,15 +45,20 @@ def parse_args():
     parser.add_argument("--save_interval", type=int, default=1000)
     parser.add_argument("--n_test_samples", type=int, default=8)
     parser.add_argument("--inference", type=bool, default=False) #Generate sound from a single spectrogram
+    parser.add_argument("--test_spec", type=str, default="")
     args = parser.parse_args()
     return args
 
+def save_spec_images(spec):
+    imgdt = datetime.datetime.now()
+    plt.imsave(str(imgdt) + '.png', spec[0].cpu().numpy())
 
 def main():
     args = parse_args()
 
     root = Path(args.save_path)
     spec_type = args.spectrogram
+    inference = args.inference
     load_root = Path(args.load_path) if args.load_path else None
     root.mkdir(parents=True, exist_ok=True)
     ####################################
@@ -61,13 +71,16 @@ def main():
     #######################
     # Load PyTorch Models #
     #######################
-    if (args.spectrogram == "mel"):
+    if (spec_type == "mel"):
+        print('Mel spec selected')
         netG = Generator(args.n_mel_channels, args.ngf, args.n_residual_layers).cuda() #initialise generator with n mel channels
         fft = Audio2Mel(n_mel_channels=args.n_mel_channels).cuda()
-    if (args.spectrogram == "cqt"):
+    if (spec_type == "cqt"):
+        print('CQT spec selected')
         netG = Generator(args.n_bins, args.ngf, args.n_residual_layers).cuda() #initialise generator with n bins
         fft = Audio2Cqt(n_bins=args.n_bins).cuda()
     else:
+        print('No spectrogram specified, defaulting to CQT')
         netG = Generator(args.n_bins, args.ngf, args.n_residual_layers).cuda()
         fft = Audio2Cqt(n_bins=args.n_bins).cuda()
     netD = Discriminator(args.num_D, args.ndf, args.n_layers_D, args.downsamp_factor).cuda() #initialize discriminator
@@ -93,15 +106,34 @@ def main():
     #######################
     # Create data loaders #
     #######################
+    if inference:
+        print('Starting inference')
+        st = time.time()
+        with torch.no_grad():
+            x = torch.load('unseen.pt')
+            x = x.cuda()
+            pred_audio = netG(x)
+            pred_audio = pred_audio.squeeze().cpu()
+            save_sample(root / ("generated_sample.wav"), 22050, pred_audio)
+            writer.add_audio(
+                "generated/sample_test.wav",
+                pred_audio,
+                global_step=None,
+                sample_rate=22050,
+            )
+            print('Finished inference')
+        return
+
     train_set = AudioDataset(
-        Path(args.data_path) / "train_files.txt", args.seq_len, sampling_rate=22050
-    )
+        Path(args.data_path) / "train_files.txt", 
+        args.seq_len, 
+        sampling_rate=22050)
+
     test_set = AudioDataset(
         Path(args.data_path) / "test_files.txt",
         22050 * 4,
         sampling_rate=22050,
-        augment=False,
-    )
+        augment=False)
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, num_workers=4)
     test_loader = DataLoader(test_set, batch_size=1)
