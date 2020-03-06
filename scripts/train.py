@@ -5,6 +5,7 @@ from spec2wav.utils import save_sample
 import torch
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
+from torchvision.transforms import ToTensor
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
@@ -45,6 +46,7 @@ def parse_args():
     parser.add_argument("--save_interval", type=int, default=1000)
     parser.add_argument("--n_test_samples", type=int, default=8)
     parser.add_argument("--inference", type=bool, default=False) #Generate sound from a single spectrogram
+    parser.add_argument("--infer_image", type=bool, default=False)
     parser.add_argument("--test_spec", type=str, default="")
     args = parser.parse_args()
     return args
@@ -110,8 +112,11 @@ def main():
         print('Starting inference')
         st = time.time()
         with torch.no_grad():
-            x = torch.load('unseen.pt')
+            #x = torch.load('10-000.pt')
+            x = Image.open('fakeA.png').convert('L')
+            x = ToTensor()(x)
             x = x.cuda()
+            print('x shape', x.shape)
             pred_audio = netG(x)
             pred_audio = pred_audio.squeeze().cpu()
             save_sample(root / ("generated_sample.wav"), 22050, pred_audio)

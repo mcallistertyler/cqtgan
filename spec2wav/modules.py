@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from torchvision.transforms import ToTensor, ToPILImage
 from nnAudio import Spectrogram
 import matplotlib.pyplot as plt
 import datetime
@@ -97,8 +98,21 @@ class Audio2Cqt(nn.Module):
         p = (self.n_bins - self.hop_length) // 2 # Needs to be corrected to make actual sense
         audio = F.pad(audio, (p, p), "reflect").squeeze(1)
         spec = self.spec_layer(audio)
-        spec = torch.log(torch.clamp(spec, min=1e-5)) # Get log magnitude of spectrogram
+        #spec = torch.log(torch.clamp(spec, min=1e-5)) # Get log magnitude of spectrogram
+        images = [ToPILImage()(x_) for x_ in spec]
+        # for i in enumerate(spec):
+        #     spec[i] = (i[0], ToTensor()(ToPILImage()(i[1].cpu())))
+        #print('count', i)
+        #print(ToTensor()(ToPILImage()(i[1].cpu())).shape)
         #save_spec_images(spec) #saves basically every single spectrogram so remember to leave this out when training
+        #possibly the dumbest way to normalize a tensor array
+        #print('spec', spec.shape)
+        #spec = ToPILImage()(spec.cpu())
+        #spec = ToTensor()(spec)
+        #c_spec = spec.clone()
+        #spec -= spec.min(1, keepdim=True)[0]
+        #spec /= spec.max(1, keepdim=True)[0]
+        #spec = ToTensor()(ToPILImage()(spec.cpu()))
         return spec
 
 class ResnetBlock(nn.Module):
