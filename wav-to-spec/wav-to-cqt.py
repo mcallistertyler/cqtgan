@@ -1,4 +1,5 @@
 ## Turns wav files into CQT Spectrogram for use in some Image-to-Image Translation model
+## Find average normalization values...I guess
 from spec2wav.dataset import AudioDataset
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
@@ -9,6 +10,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 from tqdm import tqdm
+
+min_A = []
+max_A = []
+
+def track_normalisation_average(voc):
+    for spec in voc:
+        print('spec', spec)
 
 def save_spec_images(spec, name):
     imgdt = datetime.datetime.now()
@@ -41,7 +49,10 @@ def main():
         s_t = spec_layer(x_t).detach()
         s_t = torch.log(torch.clamp(s_t, min=1e-5))
         transformedVoc.append(s_t.cuda())
+        track_normalisation_average(transformedVoc)
     
+    if (save_type == 'test'):
+        return
     if (save_type == 'torch'):
         for x in tqdm(range(0, len(transformedVoc)), ascii=True, desc='Making torch tensors'):
             torch.save(transformedVoc[x], 'torch/' + lines[x] + '.pt')
