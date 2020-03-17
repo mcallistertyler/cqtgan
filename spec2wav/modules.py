@@ -12,6 +12,9 @@ from torch.nn.utils import weight_norm
 import numpy as np
 from spec2wav.utils import save_sample
 
+min_A = []
+max_A = []
+
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
@@ -98,8 +101,13 @@ class Audio2Cqt(nn.Module):
         p = (self.n_bins - self.hop_length) // 2 # Needs to be corrected to make actual sense
         audio = F.pad(audio, (p, p), "reflect").squeeze(1)
         spec = self.spec_layer(audio)
-        #spec = torch.log(torch.clamp(spec, min=1e-5)) # Get log magnitude of spectrogram
-        images = [ToPILImage()(x_) for x_ in spec]
+        spec = torch.log(torch.clamp(spec, min=1e-5)) # Get log magnitude of spectrogram
+        #for i in enumerate(spec):
+        #    min_A.append(torch.min(i[1]))
+        #    max_A.append(torch.max(i[1]))
+        #print('maxA', max_A)
+        #print('minA', min_A)
+        #images = [ToPILImage()(x_) for x_ in spec]
         # for i in enumerate(spec):
         #     spec[i] = (i[0], ToTensor()(ToPILImage()(i[1].cpu())))
         #print('count', i)
